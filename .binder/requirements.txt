@@ -1,1 +1,0 @@
-etna[all] @ git+https://github.com/etna-team/etna.git@master

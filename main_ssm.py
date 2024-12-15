@@ -55,7 +55,7 @@ https://arxiv.org/pdf/2305.07828.pdf
 # dev_test_dataset.preGenerateMelSpecs()
 
 
-machineFolders = os.listdir('./DCASE2024')
+machineFolders = os.listdir('D:\Facultate\Master\An I\SEM II\Disertatie\DCASE2024')
 
 # getting device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -63,18 +63,18 @@ print("[INFO] device used for training...{}".format(device))
 
 # dev - ReLU / dev_2 Sigmoid+Unet / dev_3 - minimzed Autenc / dev_4 articol / dev_5 extins / dev_6 reparat /
 # dev_7 elimin neuronii/ dev_8 5 dar cu relu
-if not os.path.exists(f'./dev_ssm_mel/general'):
-    os.makedirs(f'./dev_ssm_mel/general')
+if not os.path.exists(f'./dev_ssm/general'):
+    os.makedirs(f'./dev_ssm/general')
 
-models_dir = f'./dev_ssm_mel/general'
+models_dir = f'./dev_ssm/general'
 
 # initializing hyperparameters
 INIT_LR = 0.01  # 0.1
-BATCH_SIZE = 25 # 32
+BATCH_SIZE = 30 # 32
 EPOCHS = 250
 
 print(f"[INFO] loading data for {models_dir}...")
-dev_train_dataset = AudioAnomalyDataset('./DCASE2024', ('dev', 'train'),5000,5000, 10,
+dev_train_dataset = AudioAnomalyDataset('D:/Facultate/Master/An I/SEM II/Disertatie/DCASE2024', ('dev', 'train'), 8000, 4000, 3,
                                             extension='.wav', standardize=True)
 
 # for 1 type of machine, 1000 train samples
@@ -109,7 +109,7 @@ for spec, cls in trainDataLoader:
 print("[INFO] initializing DeepSSM...")
 # initializing autoencoder
 
-DeepStateModel = DeepStateNet(LevelTrendSSM(), 1, 2, 64, device).to(device) # 1024/ 4096 / 40
+DeepStateModel = DeepStateNet(LevelTrendSSM(), 1, 2, 64, device).to(device)  # 1024/ 4096 / 40
 # model = UNet(input_shape, 1024).to(device)
 # initializig optimizer
 optimizer = torch.optim.Adam(DeepStateModel.parameters(), lr=INIT_LR)
@@ -132,7 +132,7 @@ H = {
 # last_epoch = prev_train_state['epoch']
 # H = prev_train_state['train_loss_history']
 
-training_ssm(models_dir, DeepStateModel, optimizer, H, EPOCHS, trainDataLoader, trainSteps, device)
+training_ssm(models_dir, DeepStateModel, optimizer, H, EPOCHS, trainDataLoader, dev_train_dataset, trainSteps, device)
 
 # test_model(models_dir, model, machineFolders, trainDataLoader, trainSteps, lossFn, device)
 

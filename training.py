@@ -1,12 +1,13 @@
 from utils import EarlyStopping
 import torch
 import time
-import tqdm
 
-def training_ssm(models_dir, model, optimizer, H, EPOCHS, trainDataLoader, trainSteps, device='cpu'):
 
-    for epoch in tqdm.tqdm(range(EPOCHS)):
+def training_ssm(models_dir, model, optimizer, H, EPOCHS, trainDataLoader, dev_train_dataset, trainSteps, device='cpu'):
+
+    for epoch in range(EPOCHS):
         total_loss = 0.0
+        dev_train_dataset.sample_fragments(16000*10)
         # Generate audio samples
         for batch_dict, _ in trainDataLoader:
             # Reset gradients
@@ -27,6 +28,7 @@ def training_ssm(models_dir, model, optimizer, H, EPOCHS, trainDataLoader, train
         print(f"Epoch [{epoch + 1}/{EPOCHS}], Loss: {avg_loss:.4f}")
 
     print("Training complete.")
+
 
 def training_model(models_dir, model, optimizer, scheduler, lossFn, H, EPOCHS, trainDataLoader, trainSteps,
                    valDataLoader, valSteps, device='cpu'):

@@ -19,6 +19,7 @@ class AudioAnomalyDataset(Dataset):
             encoder_length: int,
             decoder_length: int,
             num_fragments_per_file: int,
+            overlap_factor:int = 0.5,
             sample_rate: int = 16000,
             extension: str = '.wav',
             standardize: bool = False,
@@ -41,6 +42,8 @@ class AudioAnomalyDataset(Dataset):
             Number of time steps for the decoder.
         num_fragments_per_file:
             Number of splits done in only one audio file
+        overlap_factor : float, optional
+            Overlap ratio between consecutive fragments (0.0 to 1.0), by default 0.5.
         sample_rate : int, optional
             Sampling rate for audio files, by default 16000.
         extension : str, optional
@@ -54,6 +57,7 @@ class AudioAnomalyDataset(Dataset):
         self.encoder_length = encoder_length
         self.decoder_length = decoder_length
         self.num_fragments_per_file = num_fragments_per_file
+        self.overlap = overlap_factor
         self.sample_rate = sample_rate
         self.extension = extension
         self.standardize = standardize
@@ -64,17 +68,6 @@ class AudioAnomalyDataset(Dataset):
         self.start_indices = []
         self.labels = []
         self.load_dataset(dataset_type)
-
-        if self.extension == '.npy':
-            self.start_indices = self.sample_fragments(
-                file_length= 128, # audio.shape[1],
-                fragment_length=self.encoder_length + self.decoder_length // 4
-            )
-        else:
-            self.start_indices = self.sample_fragments(
-                file_length= 16000*10, #len(audio),
-                fragment_length=self.encoder_length + self.decoder_length // 4
-            )
 
     def load_dataset(self, dataset_type: Tuple[str, str]):
         """Load dataset paths based on dataset type."""
@@ -91,9 +84,47 @@ class AudioAnomalyDataset(Dataset):
                         elif 'target' in recording:
                             self.dataset_target.append(os.path.join(machine_sounds, recording))
 
-    def sample_fragments(self, file_length, fragment_length):
-        max_start = file_length - fragment_length
-        return torch.randint(0, max_start, (self.num_fragments_per_file,))
+    def sample_fragments(self, file_length):
+        """
+        Sample fragments from an audio file using a hybrid approach.
+
+        Parameters
+        ----------
+        file_length : int
+            Total length of the audio file (in samples).
+        Returns
+        -------
+        List[int]
+            List of start indices for the fragments.
+        """
+        # Compute the step size based on overlap
+        fragment_length = self.encoder_length + self.decoder_length
+        step = int(fragment_length * (1 - self.overlap))
+
+        # Ensure valid overlap
+        if step <= 0:
+            raise ValueError("Overlap too large. Choose a smaller value.")
+
+        # Determine the range for the first start index
+        max_start_index = max(0, file_length - (self.num_fragments_per_file * step + fragment_length))
+        if max_start_index <= 0:
+            raise ValueError("Audio file is too short for the given fragment length and overlap.")
+
+        # Randomly pick the first start index
+        first_start_index = torch.randint(0, max_start_index + 1, (1,)).item()
+
+        # Generate sequential fragments
+        start_indices = []
+        current_index = first_start_index
+
+        for _ in range(self.num_fragments_per_file):
+            # Ensure the fragment fits within the file
+            if current_index + fragment_length > file_length:
+                break
+            start_indices.append(current_index)
+            current_index += step
+
+        self.start_indices = start_indices
 
     def __len__(self) -> int:
         """Return the total number of fragments."""

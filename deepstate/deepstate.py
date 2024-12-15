@@ -102,8 +102,11 @@ class DeepStateNet(nn.Module):
             seq_length=seq_length,
             latent_dim=self.latent_dim,
         )
+
+
         log_likelihood = lds.log_likelihood(targets=targets)
         log_likelihood = torch.mean(torch.sum(log_likelihood, dim=1))
+
         return -log_likelihood, targets, targets
 
     def forward(self, x: DeepStateBatch):  # type: ignore

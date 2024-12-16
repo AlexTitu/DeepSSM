@@ -14,8 +14,7 @@ class AudioAnomalyDataset(Dataset):
 
     def __init__(
             self,
-            root_dir: str,
-            dataset_type: Tuple[str, str],
+            dataset: Tuple[any, any],
             encoder_length: int,
             decoder_length: int,
             num_fragments_per_file: int,
@@ -32,10 +31,8 @@ class AudioAnomalyDataset(Dataset):
         ----------
         root_dir : str
             Root directory containing audio files.
-        dataset_type : Tuple[str, str]
+        dataset : Tuple[str, str]
             Type of dataset, e.g., ('train', 'normal').
-        lags : Union[List[int], int]
-            List or range of lags to apply.
         encoder_length : int
             Number of time steps for the encoder.
         decoder_length : int
@@ -53,7 +50,6 @@ class AudioAnomalyDataset(Dataset):
         scaling_range : Tuple[float, float], optional
             Range for scaling, by default (0, 1).
         """
-        self.root_dir = root_dir
         self.encoder_length = encoder_length
         self.decoder_length = decoder_length
         self.num_fragments_per_file = num_fragments_per_file
@@ -62,27 +58,16 @@ class AudioAnomalyDataset(Dataset):
         self.extension = extension
         self.standardize = standardize
         self.scaling_range = scaling_range
-        self.machineType = 'bearing'
-        self.dataset_source = []
-        self.dataset_target = []
+        # self.machineType = 'bearing'
+        self.dataset_source = dataset[0]
+        self.dataset_target = dataset[1]
         self.start_indices = []
-        self.labels = []
-        self.load_dataset(dataset_type)
 
-    def load_dataset(self, dataset_type: Tuple[str, str]):
-        """Load dataset paths based on dataset type."""
-        machine_data = os.listdir(self.root_dir)
-        for index, machine_folder in enumerate(machine_data):
-            folder_type, machine_type = machine_folder.split("_")
-            if folder_type == dataset_type[0] and machine_type == self.machineType:
-                machine_sounds = os.path.join(self.root_dir, machine_folder, machine_type, dataset_type[1])
-                for recording in os.listdir(machine_sounds):
-                    if recording.endswith(self.extension):
-                        self.labels.append(index)
-                        if 'source' in recording:
-                            self.dataset_source.append(os.path.join(machine_sounds, recording))
-                        elif 'target' in recording:
-                            self.dataset_target.append(os.path.join(machine_sounds, recording))
+    def get_sample_fragments(self):
+        return self.start_indices
+
+    def set_sample_fragments(self, start_indices):
+        self.start_indices = start_indices
 
     def sample_fragments(self, file_length):
         """
@@ -220,7 +205,6 @@ class DCASE2024Dataset(Dataset):
     self.std = None
     self.datasetSource = []
     self.datasetTarget = []
-    self.labels = []
     self.extension = extension
     self.load_dataset()
 
@@ -259,7 +243,6 @@ class DCASE2024Dataset(Dataset):
             for recording in os.listdir(machineSounds):
                 # Check if the file is a .npy file
                 if recording.endswith(self.extension):
-                    self.labels.append(index)
                     if recording.find('source') != -1:
                         self.datasetSource.append(os.path.join(machineSounds, recording))
                     elif recording.find('target') != -1:
@@ -350,7 +333,6 @@ class DCASE2024MachineDataset(Dataset):
     self.std = None
     self.datasetSource = []
     self.datasetTarget = []
-    self.labels = []
     self.extension = extension
     self.load_dataset()
 
@@ -391,10 +373,8 @@ class DCASE2024MachineDataset(Dataset):
                 if recording.endswith(self.extension):
                     if recording.find('source') != -1:
                         self.datasetSource.append(os.path.join(machineSounds, recording))
-                        self.labels.append(0)
                     elif recording.find('target') != -1:
                         self.datasetTarget.append(os.path.join(machineSounds, recording))
-                        self.labels.append(1)
         else:
             continue
 
@@ -550,19 +530,45 @@ def plotSpectrogram(spectrogram, audioType):
     plt.show()
 
 
+def load_dataset(root_dir: str, dataset_type: Tuple[str, str], extension: str):
+    """Load dataset paths based on dataset type."""
+    dataset_source = []
+    dataset_target = []
+    machine_data = os.listdir(root_dir)
+    for index, machine_folder in enumerate(machine_data):
+        folder_type, machine_type = machine_folder.split("_")
+        if folder_type == dataset_type[0]:  # and machine_type == self.machineType:
+            machine_sounds = os.path.join(root_dir, machine_folder, machine_type, dataset_type[1])
+            for recording in os.listdir(machine_sounds):
+                if recording.endswith(extension):
+                    if 'source' in recording:
+                        dataset_source.append(os.path.join(machine_sounds, recording))
+                    elif 'target' in recording:
+                        dataset_target.append(os.path.join(machine_sounds, recording))
+
+    return dataset_source, dataset_target
+
+
 # ensuring even split of classes in train and validation sets
-def stratified_split(dataset, validation_size=0.25, random_state=None):
-    # Assuming 'dataset.labels' contains your labels
-    labels = dataset.labels
-
-    # Create stratified split for test set
-    train_index, val_index = train_test_split(
-        range(len(labels)),
+def stratified_split(dataset_source: list, dataset_target: list, validation_size: float = 0.25, random_state: int = 42):
+    """
+        Stratify split only the file paths for source and target datasets.
+        """
+    # Split source file paths
+    source_train, source_val = train_test_split(
+        dataset_source,
         test_size=validation_size,
-        random_state=random_state,
-        stratify=labels)
+        random_state=random_state
+    )
 
-    return train_index, val_index
+    # Split target file paths
+    target_train, target_val = train_test_split(
+        dataset_target,
+        test_size=validation_size,
+        random_state=random_state
+    )
+
+    return source_train, source_val, target_train, target_val
 
 
 def printDataInfo(dataset):

@@ -96,16 +96,15 @@ class DeepStateNet(nn.Module):
             transition_coeff=self.ssm.transition_coeff(),
             innovation_coeff=self.ssm.innovation_coeff(self.projectors["prior_mean"](output)) * self.projectors["innovation"](output),
             noise_std=self.projectors["noise_std"](output),
-            prior_mean= prior_mean,
+            prior_mean=prior_mean,
             prior_cov=torch.diag_embed(prior_std * prior_std),
             offset=self.projectors["offset"](output),
             seq_length=seq_length,
             latent_dim=self.latent_dim,
         )
 
-
         log_likelihood = lds.log_likelihood(targets=targets)
-        log_likelihood = torch.mean(torch.sum(log_likelihood, dim=1))
+        log_likelihood = torch.mean(torch.mean(log_likelihood, dim=1))
 
         return -log_likelihood, targets, targets
 
